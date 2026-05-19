@@ -1,7 +1,25 @@
 'use strict';
 
+const express = require('express');
+const cors = require('cors');
+const { notFound } = require('./middleware/notFound');
+const { usersRoute } = require('./routes/users');
+const { expensesRoute } = require('./routes/expenses');
+const { errorHandler } = require('./middleware/errorHandler');
+
 const createServer = () => {
-  // your code goes here
+  const app = express();
+
+  app.use(cors());
+  app.use(express.json());
+
+  app.use('/users', usersRoute);
+  app.use('/expenses', expensesRoute);
+
+  app.use(notFound);
+  app.use(errorHandler);
+
+  return app;
 };
 
 module.exports = {
