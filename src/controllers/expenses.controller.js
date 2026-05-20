@@ -15,7 +15,7 @@ async function listExpenses(req, res) {
   const expenses = await getExpenses(req.query);
 
   if (expenses === null) {
-    return res.status(404).end();
+    return null;
   }
 
   res.json(expenses);
