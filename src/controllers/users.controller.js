@@ -45,7 +45,7 @@ async function handleUpdate(req, res) {
     return res.status(404).end();
   }
 
-  res.json(user);
+  res.json(toUserDto(user));
 }
 
 async function deleteUserHandler(req, res) {

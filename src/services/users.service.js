@@ -50,7 +50,9 @@ async function deleteUser(rawId) {
     return null;
   }
 
-  return user.destroy();
+  await user.destroy();
+
+  return true;
 }
 
 module.exports = {

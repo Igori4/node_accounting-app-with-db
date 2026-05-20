@@ -8,14 +8,15 @@ const {
   handleUpdate,
   deleteExpense,
 } = require('../controllers/expenses.controller');
+const { asyncHandler } = require('../middleware/asyncHandler');
 
 const expensesRoute = Router();
 
-expensesRoute.get('/', listExpenses);
-expensesRoute.get('/:id', getExpense);
-expensesRoute.post('/', createExpense);
-expensesRoute.patch('/:id', handleUpdate);
-expensesRoute.put('/:id', handleUpdate);
-expensesRoute.delete('/:id', deleteExpense);
+expensesRoute.get('/', asyncHandler(listExpenses));
+expensesRoute.get('/:id', asyncHandler(getExpense));
+expensesRoute.post('/', asyncHandler(createExpense));
+expensesRoute.patch('/:id', asyncHandler(handleUpdate));
+expensesRoute.put('/:id', asyncHandler(handleUpdate));
+expensesRoute.delete('/:id', asyncHandler(deleteExpense));
 
 module.exports = { expensesRoute };

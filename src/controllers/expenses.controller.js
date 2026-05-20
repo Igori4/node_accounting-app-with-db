@@ -9,17 +9,10 @@ const {
 } = require('../services/expenses.service');
 const { hasRequiredNonEmptyFields } = require('../services/helpers');
 
-const REQUIRED_EXPENSE_FIELDS = [
-  'userId',
-  'spentAt',
-  'title',
-  'amount',
-  'category',
-  'note',
-];
+const REQUIRED_EXPENSE_FIELDS = ['userId', 'spentAt', 'title', 'amount'];
 
-function listExpenses(req, res) {
-  const expenses = getExpenses(req.query);
+async function listExpenses(req, res) {
+  const expenses = await getExpenses(req.query);
 
   if (expenses === null) {
     return res.status(404).end();
@@ -28,8 +21,8 @@ function listExpenses(req, res) {
   res.json(expenses);
 }
 
-function getExpense(req, res) {
-  const expense = getExpensesById(req.params.id);
+async function getExpense(req, res) {
+  const expense = await getExpensesById(req.params.id);
 
   if (!expense) {
     return res.status(404).end();
@@ -38,14 +31,14 @@ function getExpense(req, res) {
   res.json(expense);
 }
 
-function createExpense(req, res) {
+async function createExpense(req, res) {
   const body = req.body ?? {};
 
   if (!hasRequiredNonEmptyFields(body, REQUIRED_EXPENSE_FIELDS)) {
     return res.status(400).end();
   }
 
-  const expense = creatEexpenses({ ...body });
+  const expense = await creatEexpenses({ ...body });
 
   if (expense) {
     res.status(201).json(expense);
@@ -54,8 +47,8 @@ function createExpense(req, res) {
   }
 }
 
-function handleUpdate(req, res) {
-  const expense = updatEexpenses(req.params.id, req.body ?? {});
+async function handleUpdate(req, res) {
+  const expense = await updatEexpenses(req.params.id, req.body ?? {});
 
   if (!expense) {
     return res.status(404).end();
@@ -64,8 +57,8 @@ function handleUpdate(req, res) {
   res.json(expense);
 }
 
-function deleteExpense(req, res) {
-  const deleted = deletEexpenses(req.params.id);
+async function deleteExpense(req, res) {
+  const deleted = await deletEexpenses(req.params.id);
 
   if (!deleted) {
     return res.status(404).end();

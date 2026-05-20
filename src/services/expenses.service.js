@@ -1,17 +1,8 @@
 'use strict';
 
+const { Op } = require('sequelize');
+const { Expense } = require('../models/Expense.model');
 const { getUserById } = require('./users.service.js');
-
-const expensesById = new Map();
-
-/** Next assignable id. */
-let nextId = 1;
-
-/** For tests — clear between runs so suites don’t share state. */
-function resetExpensesStore() {
-  expensesById.clear();
-  nextId = 1;
-}
 
 function parseId(raw) {
   const id = typeof raw === 'string' ? Number(raw) : raw;
@@ -19,11 +10,23 @@ function parseId(raw) {
   return Number.isInteger(id) && id >= 1 ? id : null;
 }
 
+function toExpenseDto(expense) {
+  return {
+    id: expense.id,
+    spentAt: expense.spentAt,
+    title: expense.title,
+    amount: expense.amount,
+    category: expense.category,
+    note: expense.note,
+    userId: expense.userId,
+  };
+}
+
 /**
  * @param {Record<string, unknown>} query
- * @returns {Array<{ id: number } & Record<string, unknown>> | null}
+ * @returns {Promise<Array<{ id: number } & Record<string, unknown>> | null>}
  */
-function getExpenses(query) {
+async function getExpenses(query) {
   const present = (key) => {
     const v = query[key];
 
@@ -41,7 +44,9 @@ function getExpenses(query) {
   };
 
   if (present('userId')) {
-    if (!getUserById(query.userId)) {
+    const user = await getUserById(query.userId);
+
+    if (!user) {
       return null;
     }
   }
@@ -50,106 +55,101 @@ function getExpenses(query) {
   const fromMs = toMs(query.from);
   const toEndMs = toMs(query.to);
 
-  let categorySet = null;
+  const where = {};
+
+  if (userId !== null) {
+    where.userId = userId;
+  }
+
+  if (fromMs !== null || toEndMs !== null) {
+    where.spentAt = {};
+
+    if (fromMs !== null) {
+      where.spentAt[Op.gte] = new Date(fromMs);
+    }
+
+    if (toEndMs !== null) {
+      where.spentAt[Op.lte] = new Date(toEndMs);
+    }
+  }
 
   if (present('categories')) {
-    categorySet = new Set(
-      String(query.categories)
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
+    const categories = String(query.categories)
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (categories.length > 0) {
+      where.category = { [Op.in]: categories };
+    }
   }
 
-  return Array.from(expensesById.entries())
-    .filter(([, data]) => {
-      if (userId !== null && data.userId !== userId) {
-        return false;
-      }
+  const expenses = await Expense.findAll({ where });
 
-      if (fromMs !== null || toEndMs !== null) {
-        const spentMs = toMs(data.spentAt);
-
-        if (spentMs === null) {
-          return false;
-        }
-
-        if (fromMs !== null && spentMs < fromMs) {
-          return false;
-        }
-
-        if (toEndMs !== null && spentMs > toEndMs) {
-          return false;
-        }
-      }
-
-      if (categorySet !== null && categorySet.size > 0) {
-        if (!categorySet.has(String(data.category))) {
-          return false;
-        }
-      }
-
-      return true;
-    })
-    .map(([id, data]) => ({
-      id,
-      ...data,
-    }));
+  return expenses.map(toExpenseDto);
 }
 
-function getExpensesById(rawId) {
+async function getExpensesById(rawId) {
+  const id = parseId(rawId);
+  const expense = await Expense.findByPk(id);
+
+  if (!expense) {
+    return null;
+  }
+
+  return toExpenseDto(expense);
+}
+
+async function creatEexpenses(payload) {
+  const user = await getUserById(payload.userId);
+
+  if (!user) {
+    return null;
+  }
+
+  const expense = await Expense.create(payload);
+
+  return toExpenseDto(expense);
+}
+
+async function updatEexpenses(rawId, payload) {
   const id = parseId(rawId);
 
-  if (id === null || !expensesById.has(id)) {
+  if (id === null) {
     return null;
   }
 
-  return { id, ...expensesById.get(id) };
-}
+  const expense = await Expense.findByPk(id);
 
-function creatEexpenses(payload) {
-  if (!getUserById(payload.userId)) {
+  if (!expense) {
     return null;
   }
 
-  const id = nextId++;
+  await expense.update(payload);
 
-  expensesById.set(id, { ...payload });
-
-  return getExpensesById(id);
+  return toExpenseDto(expense);
 }
 
-function updatEexpenses(rawId, payload) {
+/** @returns {Promise<boolean | null>} */
+async function deletEexpenses(rawId) {
   const id = parseId(rawId);
 
-  if (id === null || !expensesById.has(id)) {
+  if (id === null) {
     return null;
   }
 
-  const merged = { ...expensesById.get(id), ...payload };
+  const expense = await Expense.findByPk(id);
 
-  expensesById.set(id, merged);
-
-  return getExpensesById(id);
-}
-
-/** @returns {{ id: number } & Record<string, unknown>} | null */
-function deletEexpenses(rawId) {
-  const id = parseId(rawId);
-
-  if (id === null || !expensesById.has(id)) {
+  if (!expense) {
     return null;
   }
 
-  const removed = getExpensesById(id);
+  await expense.destroy();
 
-  expensesById.delete(id);
-
-  return removed;
+  return true;
 }
 
 module.exports = {
-  resetExpensesStore,
   getExpenses,
   getExpensesById,
   creatEexpenses,
